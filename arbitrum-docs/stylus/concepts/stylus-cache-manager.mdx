@@ -10,7 +10,7 @@ sidebar_position: 3
 
 This initialization process, if repeated frequently, may lead to inefficiencies. To address this, we have implemented a caching strategy. By storing frequently accessed contracts in memory, we can avoid repeated initializations. This approach saves resources and time, significantly enhancing the speed and efficiency of contract execution.
 
-import PublicPreviewBannerPartial from '../partials/_stylus-public-preview-banner-partial.md';
+import PublicPreviewBannerPartial from '../partials/_stylus-public-preview-banner-partial.mdx';
 
 <PublicPreviewBannerPartial />
 
