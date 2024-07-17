@@ -7,5 +7,5 @@ jobs:
 steps:
   - uses: lee-dohm/close-matching-issues@v2
     with:
-      query: 	'performance is:open is:issue'
+      query: 'performance is:open is:issue'
       # token: ${{ secrets.GITHUB_TOKEN }}
