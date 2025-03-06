@@ -413,6 +413,7 @@ To write tests for your contract, follow these steps:
 
 Here's a complete example of how to test our NFT contract:
 
+<CustomDetails summary="test file">
 ```rust
 #[cfg(test)]
 mod test {
@@ -488,6 +489,8 @@ mod test {
     }
 }
 ```
+</CustomDetails>
+
 
 ### Advanced Testing Features
 
@@ -495,6 +498,7 @@ mod test {
 
 You can customize your test environment using `TestVMBuilder` for more complex scenarios:
 
+<CustomDetails summary="ERC-721">
 ```rust
 #[test]
 fn test_with_custom_setup() {
@@ -535,6 +539,7 @@ fn test_external_contract_interaction() {
     // ...
 }
 ```
+</CustomDetails>
 
 #### Testing Storage
 
