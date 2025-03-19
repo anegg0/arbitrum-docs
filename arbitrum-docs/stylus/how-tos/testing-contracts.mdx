@@ -25,373 +25,123 @@ The Stylus testing framework allows you to:
 
 Before you begin, make sure you have:
 
-- Rust installed (version 1.81.0 or later)
-- The Stylus SDK installed
+<details>
+<summary>Rust toolchain</summary>
+
+Follow the instructions on [Rust Lang's installation page](https://www.rust-lang.org/tools/install) to install a complete Rust toolchain (v1.81 or newer) on your system. After installation, ensure you can access the programs `rustup`, `rustc`, and `cargo` from your preferred terminal application.
+
+</details>
+
+<!-- - The Stylus SDK installed -->
+
+<details>
+<summary>Docker</summary>
+
+The testnode we will use as well as some `cargo stylus` commands require Docker to operate.
+
+You can download Docker from [Docker's website](https://www.docker.com/products/docker-desktop).
+
+</details>
+
+<details>
+<summary>Nitro devnode</summary>
+
+Stylus is available on Arbitrum Sepolia, but we'll use nitro devnode which has a pre-funded wallet saving us the effort of wallet provisioning or running out of tokens to send transactions.
+
+```shell title="Install your devnode"
+git clone https://github.com/OffchainLabs/nitro-devnode.git
+cd nitro-devnode
+```
+
+```shell title="Launch your devnode"
+./run-dev-node.sh
+```
+
+</details>
+
+
 - Basic familiarity with Rust and smart contract development
 - Cargo configured for your project
 
 ## Example Smart Contract
 
-Let's look at an ERC-721 (NFT) implementation using the Stylus SDK. This example demonstrates the core functionality we'll test:
+Let's look at the implementation of a decentralized cupcake vending machine using the Stylus SDK. This example demonstrates the core functionality we'll test.
 
-<CustomDetails summary="ERC-721">
+
+
+<CustomDetails summary="Vending-machine contract">
 ```rust
-//! Implementation of the ERC-721 standard
 //!
-//! The eponymous [`Erc721`] type provides all the standard methods,
-//! and is intended to be inherited by other contract types.
+//! Stylus Cupcake Example
 //!
-//! You can configure the behavior of [`Erc721`] via the [`Erc721Params`] trait,
-//! which allows specifying the name, symbol, and token uri.
+//! The contract is ABI-equivalent with Solidity, which means you can call it from both Solidity and Rust.
+//! To do this, run `cargo stylus export-abi`.
 //!
-//! Note that this code is unaudited and not fit for production use.
+//! Note: this code is a template-only and has not been audited.
+//!
 
-use alloc::{string::String, vec, vec::Vec};
-use alloy_primitives::{Address, U256, FixedBytes};
-use alloy_sol_types::sol;
-use core::{borrow::BorrowMut, marker::PhantomData};
-use stylus_sdk::{
-    abi::Bytes,
-    evm,
-    msg,
-    prelude::*
-};
+// Allow `cargo stylus export-abi` to generate a main function if the "export-abi" feature is enabled.
+#![cfg_attr(not(feature = "export-abi"), no_main)]
+extern crate alloc;
 
-pub trait Erc721Params {
-    /// Immutable NFT name.
-    const NAME: &'static str;
+use alloy_primitives::{Address, Uint};
+// Import items from the SDK. The prelude contains common traits and macros.
+use stylus_sdk::alloy_primitives::U256;
+use stylus_sdk::prelude::*;
+use stylus_sdk::{block, console};
 
-    /// Immutable NFT symbol.
-    const SYMBOL: &'static str;
-
-    /// The NFT's Uniform Resource Identifier.
-    fn token_uri(token_id: U256) -> String;
-}
-
+// Define persistent storage using the Solidity ABI.
+// `VendingMachine` will be the entrypoint for the contract.
 sol_storage! {
-    /// Erc721 implements all ERC-721 methods
-    pub struct Erc721<T: Erc721Params> {
-        /// Token id to owner map
-        mapping(uint256 => address) owners;
-        /// User to balance map
-        mapping(address => uint256) balances;
-        /// Token id to approved user map
-        mapping(uint256 => address) token_approvals;
-        /// User to operator map (the operator can manage all NFTs of the owner)
-        mapping(address => mapping(address => bool)) operator_approvals;
-        /// Total supply
-        uint256 total_supply;
-        /// Used to allow [`Erc721Params`]
-        PhantomData<T> phantom;
+    #[entrypoint]
+    pub struct VendingMachine {
+        // Mapping from user addresses to their cupcake balances.
+        mapping(address => uint256) cupcake_balances;
+        // Mapping from user addresses to the last time they received a cupcake.
+        mapping(address => uint256) cupcake_distribution_times;
     }
 }
 
-// Declare events and Solidity error types
-sol! {
-    event Transfer(address indexed from, address indexed to, uint256 indexed token_id);
-    event Approval(address indexed owner, address indexed approved, uint256 indexed token_id);
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
-
-    // Token id has not been minted, or it has been burned
-    error InvalidTokenId(uint256 token_id);
-    // The specified address is not the owner of the specified token id
-    error NotOwner(address from, uint256 token_id, address real_owner);
-    // The specified address does not have allowance to spend the specified token id
-    error NotApproved(address owner, address spender, uint256 token_id);
-    // Attempt to transfer token id to the Zero address
-    error TransferToZero(uint256 token_id);
-    // The receiver address refused to receive the specified token id
-    error ReceiverRefused(address receiver, uint256 token_id, bytes4 returned);
-}
-
-/// Represents the ways methods may fail.
-#[derive(SolidityError)]
-pub enum Erc721Error {
-    InvalidTokenId(InvalidTokenId),
-    NotOwner(NotOwner),
-    NotApproved(NotApproved),
-    TransferToZero(TransferToZero),
-    ReceiverRefused(ReceiverRefused),
-}
-
-// External interfaces
-sol_interface! {
-    /// Allows calls to the `onERC721Received` method of other contracts implementing `IERC721TokenReceiver`.
-    interface IERC721TokenReceiver {
-        function onERC721Received(address operator, address from, uint256 token_id, bytes data) external returns(bytes4);
-    }
-}
-
-/// Selector for `onERC721Received`, which is returned by contracts implementing `IERC721TokenReceiver`.
-const ERC721_TOKEN_RECEIVER_ID: u32 = 0x150b7a02;
-
-// These methods aren't external, but are helpers used by external methods.
-// Methods marked as "pub" here are usable outside of the erc721 module (i.e. they're callable from lib.rs).
-impl<T: Erc721Params> Erc721<T> {
-    /// Requires that msg::sender() is authorized to spend a given token
-    fn require_authorized_to_spend(&self, from: Address, token_id: U256) -> Result<(), Erc721Error> {
-        // `from` must be the owner of the token_id
-        let owner = self.owner_of(token_id)?;
-        if from != owner {
-            return Err(Erc721Error::NotOwner(NotOwner {
-                from,
-                token_id,
-                real_owner: owner,
-            }));
-        }
-
-        // caller is the owner
-        if msg::sender() == owner {
-            return Ok(());
-        }
-
-        // caller is an operator for the owner (can manage their tokens)
-        if self.operator_approvals.getter(owner).get(msg::sender()) {
-            return Ok(());
-        }
-
-        // caller is approved to manage this token_id
-        if msg::sender() == self.token_approvals.get(token_id) {
-            return Ok(());
-        }
-
-        // otherwise, caller is not allowed to manage this token_id
-        Err(Erc721Error::NotApproved(NotApproved {
-            owner,
-            spender: msg::sender(),
-            token_id,
-        }))
-    }
-
-    /// Transfers `token_id` from `from` to `to`.
-    /// This function does check that `from` is the owner of the token, but it does not check
-    /// that `to` is not the zero address, as this function is usable for burning.
-    pub fn transfer(&mut self, token_id: U256, from: Address, to: Address) -> Result<(), Erc721Error> {
-        let mut owner = self.owners.setter(token_id);
-        let previous_owner = owner.get();
-        if previous_owner != from {
-            return Err(Erc721Error::NotOwner(NotOwner {
-                from,
-                token_id,
-                real_owner: previous_owner,
-            }));
-        }
-        owner.set(to);
-
-        // right now working with storage can be verbose, but this will change upcoming version of the Stylus SDK
-        let mut from_balance = self.balances.setter(from);
-        let balance = from_balance.get() - U256::from(1);
-        from_balance.set(balance);
-
-        let mut to_balance = self.balances.setter(to);
-        let balance = to_balance.get() + U256::from(1);
-        to_balance.set(balance);
-
-        // cleaning app the approved mapping for this token
-        self.token_approvals.delete(token_id);
-        
-        evm::log(Transfer { from, to, token_id });
-        Ok(())
-    }
-
-    /// Calls `onERC721Received` on the `to` address if it is a contract.
-    /// Otherwise it does nothing
-    fn call_receiver<S: TopLevelStorage>(
-        storage: &mut S,
-        token_id: U256,
-        from: Address,
-        to: Address,
-        data: Vec<u8>,
-    ) -> Result<(), Erc721Error> {
-        if to.has_code() {
-            let receiver = IERC721TokenReceiver::new(to);
-            let received = receiver
-                .on_erc_721_received(&mut *storage, msg::sender(), from, token_id, data.into())
-                .map_err(|_e| Erc721Error::ReceiverRefused(ReceiverRefused {
-                    receiver: receiver.address,
-                    token_id,
-                    returned: alloy_primitives::FixedBytes(0_u32.to_be_bytes()),
-                }))?
-                .0;
-
-            if u32::from_be_bytes(received) != ERC721_TOKEN_RECEIVER_ID {
-                return Err(Erc721Error::ReceiverRefused(ReceiverRefused {
-                    receiver: receiver.address,
-                    token_id,
-                    returned: alloy_primitives::FixedBytes(received),
-                }));
-            }
-        }
-        Ok(())
-    }
-
-    /// Transfers and calls `onERC721Received`
-    pub fn safe_transfer<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        token_id: U256,
-        from: Address,
-        to: Address,
-        data: Vec<u8>,
-    ) -> Result<(), Erc721Error> {
-        storage.borrow_mut().transfer(token_id, from, to)?;
-        Self::call_receiver(storage, token_id, from, to, data)
-    }
-
-    /// Mints a new token and transfers it to `to`
-    pub fn mint(&mut self, to: Address) -> Result<(), Erc721Error> {
-        let new_token_id = self.total_supply.get();
-        self.total_supply.set(new_token_id + U256::from(1u8));
-        self.transfer(new_token_id, Address::default(), to)?;
-        Ok(())
-    }
-
-    /// Burns the token `token_id` from `from`
-    /// Note that total_supply is not reduced since it's used to calculate the next token_id to mint
-    pub fn burn(&mut self, from: Address, token_id: U256) -> Result<(), Erc721Error> {
-        self.transfer(token_id, from, Address::default())?;
-        Ok(())
-    }
-}
-
-// these methods are external to other contracts
+// Declare that `VendingMachine` is a contract with the following external methods.
 #[public]
-impl<T: Erc721Params> Erc721<T> {
-    /// Immutable NFT name.
-    pub fn name() -> Result<String, Erc721Error> {
-        Ok(T::NAME.into())
-    }
+impl VendingMachine {
+    // Give a cupcake to the specified user if they are eligible (i.e., if at least 5 seconds have passed since their last cupcake).
+    pub fn give_cupcake_to(&mut self, user_address: Address) -> bool {
+        // Get the last distribution time for the user.
+        let last_distribution = self.cupcake_distribution_times.get(user_address);
+        // Calculate the earliest next time the user can receive a cupcake.
+        let five_seconds_from_last_distribution = last_distribution + U256::from(5);
 
-    /// Immutable NFT symbol.
-    pub fn symbol() -> Result<String, Erc721Error> {
-        Ok(T::SYMBOL.into())
-    }
+        // Get the current block timestamp.
+        let current_time = block::timestamp();
+        // Check if the user can receive a cupcake.
+        let user_can_receive_cupcake =
+            five_seconds_from_last_distribution <= Uint::<256, 4>::from(current_time);
 
-    /// The NFT's Uniform Resource Identifier.
-    #[selector(name = "tokenURI")]
-    pub fn token_uri(&self, token_id: U256) -> Result<String, Erc721Error> {
-        self.owner_of(token_id)?; // require NFT exist
-        Ok(T::token_uri(token_id))
-    }
+        if user_can_receive_cupcake {
+            // Increment the user's cupcake balance.
+            let mut balance_accessor = self.cupcake_balances.setter(user_address);
+            let balance = balance_accessor.get() + U256::from(1);
+            balance_accessor.set(balance);
 
-    /// Gets the number of NFTs owned by an account.
-    pub fn balance_of(&self, owner: Address) -> Result<U256, Erc721Error> {
-        Ok(self.balances.get(owner))
-    }
-
-    /// Gets the owner of the NFT, if it exists.
-    pub fn owner_of(&self, token_id: U256) -> Result<Address, Erc721Error> {
-        let owner = self.owners.get(token_id);
-        if owner.is_zero() {
-            return Err(Erc721Error::InvalidTokenId(InvalidTokenId { token_id }));
+            // Update the distribution time to the current time.
+            let mut time_accessor = self.cupcake_distribution_times.setter(user_address);
+            let new_distribution_time = block::timestamp();
+            time_accessor.set(Uint::<256, 4>::from(new_distribution_time));
+            return true;
+        } else {
+            // User must wait before receiving another cupcake.
+            console!(
+                "HTTP 429: Too Many Cupcakes (you must wait at least 5 seconds between cupcakes)"
+            );
+            return false;
         }
-        Ok(owner)
     }
 
-    /// Transfers an NFT, but only after checking the `to` address can receive the NFT.
-    /// It includes additional data for the receiver.
-    #[selector(name = "safeTransferFrom")]
-    pub fn safe_transfer_from_with_data<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        from: Address,
-        to: Address,
-        token_id: U256,
-        data: Bytes,
-    ) -> Result<(), Erc721Error> {
-        if to.is_zero() {
-            return Err(Erc721Error::TransferToZero(TransferToZero { token_id }));
-        }
-        storage
-            .borrow_mut()
-            .require_authorized_to_spend(from, token_id)?;
-
-        Self::safe_transfer(storage, token_id, from, to, data.0)
-    }
-
-    /// Equivalent to [`safe_transfer_from_with_data`], but without the additional data.
-    ///
-    /// Note: because Rust doesn't allow multiple methods with the same name,
-    /// we use the `#[selector]` macro attribute to simulate solidity overloading.
-    #[selector(name = "safeTransferFrom")]
-    pub fn safe_transfer_from<S: TopLevelStorage + BorrowMut<Self>>(
-        storage: &mut S,
-        from: Address,
-        to: Address,
-        token_id: U256,
-    ) -> Result<(), Erc721Error> {
-        Self::safe_transfer_from_with_data(storage, from, to, token_id, Bytes(vec![]))
-    }
-
-    /// Transfers the NFT.
-    pub fn transfer_from(&mut self, from: Address, to: Address, token_id: U256) -> Result<(), Erc721Error> {
-        if to.is_zero() {
-            return Err(Erc721Error::TransferToZero(TransferToZero { token_id }));
-        }
-        self.require_authorized_to_spend(from, token_id)?;
-        self.transfer(token_id, from, to)?;
-        Ok(())
-    }
-
-    /// Grants an account the ability to manage the sender's NFT.
-    pub fn approve(&mut self, approved: Address, token_id: U256) -> Result<(), Erc721Error> {
-        let owner = self.owner_of(token_id)?;
-
-        // require authorization
-        if msg::sender() != owner && !self.operator_approvals.getter(owner).get(msg::sender()) {
-            return Err(Erc721Error::NotApproved(NotApproved {
-                owner,
-                spender: msg::sender(),
-                token_id,
-            }));
-        }
-        self.token_approvals.insert(token_id, approved);
-
-        evm::log(Approval {
-            approved,
-            owner,
-            token_id,
-        });
-        Ok(())
-    }
-
-    /// Grants an account the ability to manage all of the sender's NFTs.
-    pub fn set_approval_for_all(&mut self, operator: Address, approved: bool) -> Result<(), Erc721Error> {
-        let owner = msg::sender();
-        self.operator_approvals
-            .setter(owner)
-            .insert(operator, approved);
-
-        evm::log(ApprovalForAll {
-            owner,
-            operator,
-            approved,
-        });
-        Ok(())
-    }
-
-    /// Gets the account managing an NFT, or zero if unmanaged.
-    pub fn get_approved(&mut self, token_id: U256) -> Result<Address, Erc721Error> {
-        Ok(self.token_approvals.get(token_id))
-    }
-
-    /// Determines if an account has been authorized to managing all of a user's NFTs.
-    pub fn is_approved_for_all(&mut self, owner: Address, operator: Address) -> Result<bool, Erc721Error> {
-        Ok(self.operator_approvals.getter(owner).get(operator))
-    }
-
-    /// Whether the NFT supports a given standard.
-    pub fn supports_interface(interface: FixedBytes<4>) -> Result<bool, Erc721Error> {
-        let interface_slice_array: [u8; 4] = interface.as_slice().try_into().unwrap();
-
-        if u32::from_be_bytes(interface_slice_array) == 0xffffffff {
-            // special cased in the ERC165 standard
-            return Ok(false);
-        }
-
-        const IERC165: u32 = 0x01ffc9a7;
-        const IERC721: u32 = 0x80ac58cd;
-        const IERC721_METADATA: u32 = 0x5b5e139f;
-
-        Ok(matches!(u32::from_be_bytes(interface_slice_array), IERC165 | IERC721 | IERC721_METADATA))
+    // Get the cupcake balance for the specified user.
+    pub fn get_cupcake_balance_for(&self, user_address: Address) -> Uint<256, 4> {
+        // Return the user's cupcake balance from storage.
+        return self.cupcake_balances.get(user_address);
     }
 }
 ```
