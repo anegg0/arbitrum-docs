@@ -13,8 +13,8 @@ This page describes the different strategies a validator may follow and provides
 This how-to assumes that you're familiar with the following:
 
 - How to run a full node (see instructions [here](/run-arbitrum-node/03-run-full-node.mdx) for DAO-governed chains, and [here](/node-running/how-tos/running-an-orbit-node.mdx) for Orbit chains)
-- [How the Rollup protocol works](/how-arbitrum-works/06-optimistic-rollup.mdx)
-- [How BoLD works](/bold/concepts/bold-technical-deep-dive.mdx#how-bold-uses-ethereum), if you're running a validator for a chain that has BoLD activated
+- [How the Rollup protocol works](/how-arbitrum-works/05-validation-and-proving/02-rollup-protocol.mdx)
+- [How BoLD works](/how-arbitrum-works/bold/bold-technical-deep-dive.mdx#how-bold-uses-ethereum), if you're running a validator for a chain that has BoLD activated
 
 ## Validation strategies
 
@@ -80,7 +80,7 @@ On top of the configuration of a regular full node, you'll need to configure the
 Here's an example of how to run a defensive validator for Arbitrum One:
 
 ```shell
-docker run --rm -it  -v /some/local/dir/arbitrum:/home/user/.arbitrum @@latestNitroNodeImage=offchainlabs/nitro-node:v3.5.1-8f247fd@@ --parent-chain.connection.url=https://l1-mainnet-node:8545 --chain.id=42161 --node.staker.enable --node.staker.strategy=Defensive --node.staker.parent-chain-wallet.password="SOME SECURE PASSWORD" --node.bold.enable --node.bold.strategy=Defensive
+docker run --rm -it  -v /some/local/dir/arbitrum:/home/user/.arbitrum @@latestNitroNodeImage=offchainlabs/nitro-node:v3.5.2-33d30c0@@ --parent-chain.connection.url=https://l1-mainnet-node:8545 --chain.id=42161 --node.staker.enable --node.staker.strategy=Defensive --node.staker.parent-chain-wallet.password="SOME SECURE PASSWORD" --node.bold.enable --node.bold.strategy=Defensive
 ```
 
 ### Step 2: verify that your node is running as a validator
@@ -123,7 +123,7 @@ Nitro includes a tool to create a validator wallet for a specific chain automati
 Here is an example of how to create a validator wallet for Arbitrum One and exit:
 
 ```shell
-docker run --rm -it  -v /some/local/dir/arbitrum:/home/user/.arbitrum @@latestNitroNodeImage=offchainlabs/nitro-node:v3.5.1-8f247fd@@ --parent-chain.connection.url=https://l1-mainnet-node:8545 --chain.id=42161 --node.staker.enable --node.staker.parent-chain-wallet.only-create-key --node.staker.parent-chain-wallet.password="SOME SECURE PASSWORD"
+docker run --rm -it  -v /some/local/dir/arbitrum:/home/user/.arbitrum @@latestNitroNodeImage=offchainlabs/nitro-node:v3.5.2-33d30c0@@ --parent-chain.connection.url=https://l1-mainnet-node:8545 --chain.id=42161 --node.staker.enable --node.staker.parent-chain-wallet.only-create-key --node.staker.parent-chain-wallet.password="SOME SECURE PASSWORD"
 ```
 
 The wallet file will be created under the mounted directory inside the `<chain-name>/wallet/` directory (for example, `arb1/wallet/` for Arbitrum One, or `nova/wallet/` for Arbitrum Nova). Be sure to backup the wallet file, as it will be the only way to withdraw the stake when desired.
