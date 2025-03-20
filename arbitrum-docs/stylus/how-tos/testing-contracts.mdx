@@ -64,7 +64,13 @@ cd nitro-devnode
 
 ## Example Smart Contract
 
-Let's look at the implementation of a decentralized cupcake vending machine using the Stylus SDK. This example demonstrates the core functionality we'll test.
+Let's look at the implementation of a decentralized cupcake vending machine using the Stylus SDK. 
+
+This example demonstrates the core functionality we'll test.
+We're going to test a Rust Smart Contract defining a cupcake vending machine.
+This vending machine will follow two rules:
+1. The vending machine will distribute a cupcake to anyone who hasn't recently received one.
+2. The vending machine's rules can't be changed by anyone.
 
 <CustomDetails summary="Vending-machine contract">
 ```rust
