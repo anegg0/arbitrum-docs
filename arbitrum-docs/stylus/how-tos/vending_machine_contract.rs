@@ -25,6 +25,12 @@ mapping(address => uint256) cupcake_balances;
 // Mapping from user addresses to the last time they received a cupcake.
 mapping(address => uint256) cupcake_distribution_times;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod vending_machine_test;
+}
 }
 
 // Declare that `VendingMachine` is a contract with the following external methods. #[public]
