@@ -13,7 +13,7 @@ extern crate alloc;
 use alloy_primitives::{Address, Uint};
 // Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::alloy_primitives::U256;
-use stylus_sdk::prelude::\*;
+use stylus_sdk::prelude::*;
 use stylus_sdk::{block, console};
 
 // Define persistent storage using the Solidity ABI.
