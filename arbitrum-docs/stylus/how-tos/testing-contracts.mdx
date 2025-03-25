@@ -64,11 +64,12 @@ cd nitro-devnode
 
 ## Example Smart Contract
 
-Let's look at the implementation of a decentralized cupcake vending machine using the Stylus SDK. 
+Let's look at the implementation of a decentralized cupcake vending machine using the Stylus SDK.
 
 This example demonstrates the core functionality we'll test.
 We're going to test a Rust Smart Contract defining a cupcake vending machine.
 This vending machine will follow two rules:
+
 1. The vending machine will distribute a cupcake to anyone who hasn't recently received one.
 2. The vending machine's rules can't be changed by anyone.
 
@@ -166,7 +167,8 @@ To write tests for your contract, follow these steps:
 Here's a complete example of how to test our NFT contract:
 
 <CustomDetails summary="test file">
-`use stylus_sdk::{alloy_primitives::Address, prelude::*};
+``` rust
+use stylus_sdk::{alloy_primitives::Address, prelude::*};
 use stylus_test::*;
 
 use stylus_cupcake_example::*;
@@ -176,28 +178,28 @@ fn test_give_cupcake() {
     // Setup test environment
     let vm = TestVM::default();
     let mut contract = VendingMachine::from(&vm);
-    
+
     // Create a test user address
     let user = Address::from([0x1; 20]);
-    
+
     // First cupcake should succeed
     assert!(contract.give_cupcake_to(user));
-    
+
     // Balance should be 1
     assert_eq!(contract.get_cupcake_balance_for(user), 1.into());
-    
+
     // Immediate second attempt should fail (needs 5 second wait)
     assert!(!contract.give_cupcake_to(user));
-    
+
     // Balance should still be 1
     assert_eq!(contract.get_cupcake_balance_for(user), 1.into());
-    
+
     // Advance block timestamp by 6 seconds
     vm.set_timestamp(6);
-    
+
     // Should be able to get another cupcake now
     assert!(contract.give_cupcake_to(user));
-    
+
     // Balance should be 2
     assert_eq!(contract.get_cupcake_balance_for(user), 2.into());
 }
@@ -206,31 +208,28 @@ fn test_give_cupcake() {
 fn test_get_cupcake_balance() {
     let vm = TestVM::default();
     let mut contract = VendingMachine::from(&vm);
-    
+
     // Create a test user address
     let user = Address::from([0x2; 20]);
-    
+
     // Initial balance should be 0
     assert_eq!(contract.get_cupcake_balance_for(user), 0.into());
-    
+
     // Give a cupcake
     assert!(contract.give_cupcake_to(user));
-    
+
     // Balance should be 1
     assert_eq!(contract.get_cupcake_balance_for(user), 1.into());
 }
 ```rust
 </CustomDetails>
 
-### Advanced Testing Features
+<!-- ### Advanced Testing Features -->
 
-#### Customizing the Test Environment
+<!-- #### Customizing the Test Environment -->
 
-You can customize your test environment using `TestVMBuilder` for more complex scenarios:
+<!-- You can customize your test environment using `TestVMBuilder` for more complex scenarios: -->
 
-<CustomDetails summary="">
-```rust
-````
 
 #### Testing Contract Interactions
 
@@ -257,7 +256,7 @@ fn test_external_contract_interaction() {
     // Test logic that involves calling the external contract
     // ...
 }
-````
+```
 
 </CustomDetails>
 
@@ -323,3 +322,4 @@ cargo test test_mint
 Testing is an essential part of smart contract development to ensure security, correctness, and reliability. The Stylus SDK provides powerful testing tools that allow you to thoroughly test your contracts before deployment.
 
 The ability to test Rust contracts directly, without requiring a blockchain environment, makes the development cycle faster and more efficient.
+````
