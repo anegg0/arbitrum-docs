@@ -155,8 +155,8 @@ use stylus_cupcake_example::*;
 #[test]
 fn test_give_cupcake() {
     // Set up test environment
-    let vm = TestVM::default();
-    let mut contract = VendingMachine::from(&vm);
+//    let vm = TestVM::default();
+ //   let mut contract = VendingMachine::from(&vm);
 
     // Test logic goes here...
 }
@@ -177,6 +177,8 @@ For the vending machine contract, we need to control the block timestamp to test
 #[test]
 fn test_give_cupcake() {
     // Setup test environment
+    use stylus_test::{TestVM, TestVMBuilder};
+
     let vm = TestVM::default();
     let mut contract = VendingMachine::from(&vm);
 
