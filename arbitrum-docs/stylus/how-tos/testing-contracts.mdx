@@ -71,29 +71,27 @@ use alloy_primitives::{Address, Uint};
 // Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::alloy_primitives::U256;
 use stylus_sdk::console;
-use stylus_sdk::prelude::*;
+use stylus_sdk::prelude::\*;
 
 // Define persistent storage using the Solidity ABI.
 // `VendingMachine` will be the entrypoint for the contract.
-sol_storage! {
-    #[entrypoint]
-    pub struct VendingMachine {
-        // Mapping from user addresses to their cupcake balances.
-        mapping(address => uint256) cupcake_balances;
-        // Mapping from user addresses to the last time they received a cupcake.
-        mapping(address => uint256) cupcake_distribution_times;
-    }
+sol_storage! { #[entrypoint]
+pub struct VendingMachine {
+// Mapping from user addresses to their cupcake balances.
+mapping(address => uint256) cupcake_balances;
+// Mapping from user addresses to the last time they received a cupcake.
+mapping(address => uint256) cupcake_distribution_times;
+}
 }
 
-// Declare that `VendingMachine` is a contract with the following external methods.
-#[public]
+// Declare that `VendingMachine` is a contract with the following external methods. #[public]
 impl VendingMachine {
-    // Give a cupcake to the specified user if they are eligible (i.e., if at least 5 seconds have passed since their last cupcake).
-    pub fn give_cupcake_to(&mut self, user_address: Address) -> Result<bool, Vec<u8>> {
-        // Get the last distribution time for the user.
-        let last_distribution = self.cupcake_distribution_times.get(user_address);
-        // Calculate the earliest next time the user can receive a cupcake.
-        let five_seconds_from_last_distribution = last_distribution + U256::from(5);
+// Give a cupcake to the specified user if they are eligible (i.e., if at least 5 seconds have passed since their last cupcake).
+pub fn give_cupcake_to(&mut self, user_address: Address) -> Result<bool, Vec<u8>> {
+// Get the last distribution time for the user.
+let last_distribution = self.cupcake_distribution_times.get(user_address);
+// Calculate the earliest next time the user can receive a cupcake.
+let five_seconds_from_last_distribution = last_distribution + U256::from(5);
 
         // Get the current block timestamp using the VM pattern
         let current_time = self.vm().block_timestamp();
@@ -128,9 +126,10 @@ impl VendingMachine {
         // Return the user's cupcake balance from storage.
         Ok(self.cupcake_balances.get(user_address))
     }
+
 }
 
-```
+````
 </CustomDetails>
 
 ## Writing Tests for the Vending Machine
@@ -216,90 +215,59 @@ Let's create a more comprehensive test suite that covers all aspects of our cont
 
 <CustomDetails summary="Comprehensive Test Vending Machine Contract">
 ```rust
-use stylus_sdk::{alloy_primitives::Address, prelude::*};
-use stylus_test::*;
-
-use stylus_cupcake_example::\*;
-
-#[test]
-fn test_initial_balance() {
-let vm = TestVM::default();
-let contract = VendingMachine::from(&vm);
-
-    let user = Address::from([0x1; 20]);
-
-    // Initial balance should be zero
-    assert_eq!(contract.get_cupcake_balance_for(user), 0.into());
-
-}
+use alloy_primitives::{address, U256};
+use stylus_sdk::testing::*;
+use stylus_testing_example::VendingMachine;
 
 #[test]
-fn test_give_first_cupcake() {
-let vm = TestVM::default();
-let mut contract = VendingMachine::from(&vm);
+fn test_give_cupcake_to() {
+// Create a new TestVM
+// let vm = TestVM::default();
+let vm: TestVM = TestVMBuilder::new()
+.sender(address!("dCE82b5f92C98F27F116F70491a487EFFDb6a2a9"))
+.contract_address(address!("0x11b57fe348584f042e436c6bf7c3c3def171de49"))
+.value(U256::from(1))
+.rpc_url("http://localhost:8547")
+.build();
 
-    let user = Address::from([0x1; 20]);
+    // Initialize the contract with the VM
+    let mut contract = VendingMachine::from(&vm);
 
-    // First cupcake should succeed
-    assert!(contract.give_cupcake_to(user));
+    // Test address
+    let user = address!("0xCDC41bff86a62716f050622325CC17a317f99404");
 
-    // Balance should be 1
-    assert_eq!(contract.get_cupcake_balance_for(user), 1.into());
+    // Check initial balance is zero
+    assert_eq!(contract.get_cupcake_balance_for(user).unwrap(), U256::ZERO);
 
-}
+    // Give a cupcake and verify it succeeds
+    assert!(contract.give_cupcake_to(user).unwrap());
 
-#[test]
-fn test_cooldown_period() {
-let vm = TestVM::default();
-let mut contract = VendingMachine::from(&vm);
+    // Check balance is now 1
+    assert_eq!(
+        contract.get_cupcake_balance_for(user).unwrap(),
+        U256::from(1)
+    );
 
-    let user = Address::from([0x1; 20]);
+    // Try to give another cupcake immediately - should fail due to time restriction
+    assert!(!contract.give_cupcake_to(user).unwrap());
 
-    // First cupcake should succeed
-    assert!(contract.give_cupcake_to(user));
+    // Balance should still be 1
+    assert_eq!(
+        contract.get_cupcake_balance_for(user).unwrap(),
+        U256::from(1)
+    );
 
-    // Immediate second attempt should fail (needs 5 second wait)
-    assert!(!contract.give_cupcake_to(user));
+    // Advance block timestamp by 6 seconds
+    vm.set_block_timestamp(vm.block_timestamp() + 6);
 
-    // Try after 4 seconds (still too early)
-    vm.set_block_timestamp(4);
-    assert!(!contract.give_cupcake_to(user));
+    // Now giving a cupcake should succeed
+    assert!(contract.give_cupcake_to(user).unwrap());
 
-    // Try after 5 seconds (exactly at threshold, should succeed)
-    vm.set_block_timestamp(5);
-    assert!(contract.give_cupcake_to(user));
-
-    // Balance should be 2
-    assert_eq!(contract.get_cupcake_balance_for(user), 2.into());
-
-}
-
-#[test]
-fn test_multiple_users() {
-let vm = TestVM::default();
-let mut contract = VendingMachine::from(&vm);
-
-    let user1 = Address::from([0x1; 20]);
-    let user2 = Address::from([0x2; 20]);
-
-    // User1 gets a cupcake
-    assert!(contract.give_cupcake_to(user1));
-
-    // User2 also gets a cupcake
-    assert!(contract.give_cupcake_to(user2));
-
-    // Both should have a balance of 1
-    assert_eq!(contract.get_cupcake_balance_for(user1), 1.into());
-    assert_eq!(contract.get_cupcake_balance_for(user2), 1.into());
-
-    // User1 has to wait, but User2 can get another if time passes
-    vm.set_block_timestamp(6);
-    assert!(contract.give_cupcake_to(user1));
-    assert!(contract.give_cupcake_to(user2));
-
-    // Balances should update accordingly
-    assert_eq!(contract.get_cupcake_balance_for(user1), 2.into());
-    assert_eq!(contract.get_cupcake_balance_for(user2), 2.into());
+    // Balance should now be 2
+    assert_eq!(
+        contract.get_cupcake_balance_for(user).unwrap(),
+        U256::from(2)
+    );
 
 }
 
