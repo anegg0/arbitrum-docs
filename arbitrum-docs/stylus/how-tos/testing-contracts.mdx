@@ -137,21 +137,21 @@ Create a test file using standard Rust test patterns. Here's the basic structure
 
 ```rust
 // Import necessary dependencies
-use stylus_sdk::{alloy_primitives::Address, prelude::*};
-use stylus_test::*;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloy_primitives::address;
+    use stylus_sdk::testing::*;
 
-// Import your contract
-use stylus_cupcake_example::*;
-
-#[test]
-fn test_give_cupcake() {
+    #[test]
+    fn test_give_cupcake_to() {
     // Set up test environment
 //    let vm = TestVM::default();
  //   let mut contract = VendingMachine::from(&vm);
 
     // Test logic goes here...
 }
-````
+```
 
 ### Using the TestVM
 
@@ -203,65 +203,64 @@ fn test_give_cupcake() {
 
 Let's create a more comprehensive test suite that covers all aspects of our contract:
 
+For more complex test setups, you can use the `TestVMBuilder` to configure the test environment:
+
+### Using TestVMBuilder
+
 <CustomDetails summary="Comprehensive Test Vending Machine Contract">
 ```rust
-use alloy_primitives::{address, U256};
-use stylus_sdk::testing::*;
-use stylus_testing_example::VendingMachine;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloy_primitives::address;
+    use stylus_sdk::testing::*;
 
-#[test]
-fn test_give_cupcake_to() {
-// Create a new TestVM
-// let vm = TestVM::default();
-let vm: TestVM = TestVMBuilder::new()
-.sender(address!("dCE82b5f92C98F27F116F70491a487EFFDb6a2a9"))
-.contract_address(address!("0x11b57fe348584f042e436c6bf7c3c3def171de49"))
-.value(U256::from(1))
-.rpc_url("http://localhost:8547")
-.build();
+    #[test]
+    fn test_give_cupcake_to() {
+        let vm: TestVM = TestVMBuilder::new()
+            .sender(address!("dCE82b5f92C98F27F116F70491a487EFFDb6a2a9"))
+            .contract_address(address!("0x11b57fe348584f042e436c6bf7c3c3def171de49"))
+            .value(U256::from(1))
+            .build();
+        let mut contract = VendingMachine::from(&vm);
+        let user = address!("0xCDC41bff86a62716f050622325CC17a317f99404");
+        assert_eq!(contract.get_cupcake_balance_for(user).unwrap(), U256::ZERO);
 
-    // Initialize the contract with the VM
-    let mut contract = VendingMachine::from(&vm);
+        vm.set_block_timestamp(vm.block_timestamp() + 6);
 
-    // Test address
-    let user = address!("0xCDC41bff86a62716f050622325CC17a317f99404");
+        // Give a cupcake and verify it succeeds
+        assert!(contract.give_cupcake_to(user).unwrap());
 
-    // Check initial balance is zero
-    assert_eq!(contract.get_cupcake_balance_for(user).unwrap(), U256::ZERO);
+        // Check balance is now 1
+        assert_eq!(
+            contract.get_cupcake_balance_for(user).unwrap(),
+            U256::from(1)
+        );
 
-    // Give a cupcake and verify it succeeds
-    assert!(contract.give_cupcake_to(user).unwrap());
+        // Try to give another cupcake immediately - should fail due to time restriction
+        assert!(!contract.give_cupcake_to(user).unwrap());
 
-    // Check balance is now 1
-    assert_eq!(
-        contract.get_cupcake_balance_for(user).unwrap(),
-        U256::from(1)
-    );
+        // Balance should still be 1
+        assert_eq!(
+            contract.get_cupcake_balance_for(user).unwrap(),
+            U256::from(1)
+        );
 
-    // Try to give another cupcake immediately - should fail due to time restriction
-    assert!(!contract.give_cupcake_to(user).unwrap());
+        // Advance block timestamp by 6 seconds
+        vm.set_block_timestamp(vm.block_timestamp() + 6);
 
-    // Balance should still be 1
-    assert_eq!(
-        contract.get_cupcake_balance_for(user).unwrap(),
-        U256::from(1)
-    );
+        // Now giving a cupcake should succeed
+        assert!(contract.give_cupcake_to(user).unwrap());
 
-    // Advance block timestamp by 6 seconds
-    vm.set_block_timestamp(vm.block_timestamp() + 6);
-
-    // Now giving a cupcake should succeed
-    assert!(contract.give_cupcake_to(user).unwrap());
-
-    // Balance should now be 2
-    assert_eq!(
-        contract.get_cupcake_balance_for(user).unwrap(),
-        U256::from(2)
-    );
-
+        // Balance should now be 2
+        assert_eq!(
+            contract.get_cupcake_balance_for(user).unwrap(),
+            U256::from(2)
+        );
+    }
 }
 
-````
+```
 </CustomDetails>
 
 ## Advanced Testing Techniques
@@ -284,7 +283,7 @@ fn test_with_custom_environment() {
 
     // Your test logic here...
 }
-````
+```
 
 ### Testing Storage State
 
