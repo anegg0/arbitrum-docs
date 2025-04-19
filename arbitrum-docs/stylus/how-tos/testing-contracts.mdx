@@ -201,11 +201,10 @@ fn test_give_cupcake() {
 
 ### Comprehensive Test Suite
 
-Let's create a more comprehensive test suite that covers all aspects of our contract:
+Let's create a more comprehensive test suite that covers all aspects of our contract.
 
-For more complex test setups, you can use the `TestVMBuilder` to configure the test environment:
+Below is a more advanced example test file, we'll go over the code features one by one:
 
-### Using TestVMBuilder
 
 <CustomDetails summary="Comprehensive Test Vending Machine Contract">
 ```rust
@@ -263,26 +262,23 @@ mod test {
 ```
 </CustomDetails>
 
-## Advanced Testing Techniques
-
 ### Using TestVMBuilder
 
 For more complex test setups, you can use the `TestVMBuilder` to configure the test environment:
 
 ```rust
-#[test]
-fn test_with_custom_environment() {
-    // Create a custom VM with specific parameters
-    let vm = TestVMBuilder::new()
-        .sender(Address::from([0x3; 20]))       // Set the transaction sender
-        .contract_address(Address::from([0x4; 20])) // Set contract address
-        .block_timestamp(100)                    // Set the block timestamp
-        .build();
+    #[test]
+    fn test_give_cupcake_to() {
+        let vm: TestVM = TestVMBuilder::new()
+            .sender(address!("dCE82b5f92C98F27F116F70491a487EFFDb6a2a9"))
+            .contract_address(address!("0x11b57fe348584f042e436c6bf7c3c3def171de49"))
+            .value(U256::from(1))
+            .build();
 
     let mut contract = VendingMachine::from(&vm);
 
     // Your test logic here...
-}
+    }
 ```
 
 ### Testing Storage State
