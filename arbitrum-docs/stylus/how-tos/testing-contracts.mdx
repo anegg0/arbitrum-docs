@@ -69,23 +69,22 @@ extern crate alloc;
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::alloy_primitives::{Address, U256};
 use stylus_sdk::console;
-use stylus_sdk::prelude::*;
+use stylus_sdk::prelude::\*;
 
-sol_storage! {
-    #[entrypoint]
-    pub struct VendingMachine {
-        mapping(address => uint256) cupcake_balances;
-        mapping(address => uint256) cupcake_distribution_times;
-    }
+sol_storage! { #[entrypoint]
+pub struct VendingMachine {
+mapping(address => uint256) cupcake_balances;
+mapping(address => uint256) cupcake_distribution_times;
+}
 }
 
 #[public]
 impl VendingMachine {
-    pub fn give_cupcake_to(&mut self, user_address: Address) -> Result<bool, Vec<u8>> {
-        // Get the last distribution time for the user.
-        let last_distribution = self.cupcake_distribution_times.get(user_address);
-        // Calculate the earliest next time the user can receive a cupcake.
-        let five_seconds_from_last_distribution = last_distribution + U256::from(5);
+pub fn give_cupcake_to(&mut self, user_address: Address) -> Result<bool, Vec<u8>> {
+// Get the last distribution time for the user.
+let last_distribution = self.cupcake_distribution_times.get(user_address);
+// Calculate the earliest next time the user can receive a cupcake.
+let five_seconds_from_last_distribution = last_distribution + U256::from(5);
 
         // Get the current block timestamp using the VM pattern
         let current_time = self.vm().block_timestamp();
@@ -117,6 +116,7 @@ impl VendingMachine {
     pub fn get_cupcake_balance_for(&self, user_address: Address) -> Result<U256, Vec<u8>> {
         Ok(self.cupcake_balances.get(user_address))
     }
+
 }
 
 ````
@@ -446,3 +446,4 @@ Testing is an essential part of smart contract development to ensure security, c
 By using the techniques outlined in this guide, you can create comprehensive test suites that give you confidence in your contract's behavior under various conditions, without the costs or delays associated with on-chain testing.
 
 The ability to test Rust contracts natively, without requiring a blockchain environment, makes the development cycle faster and more efficient while maintaining high standards of security and correctness.
+````
