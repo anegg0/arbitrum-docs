@@ -16,7 +16,7 @@ The Stylus SDK provides a robust testing framework that allows developers to wri
 
 The Stylus testing framework allows you to:
 
-- Simulate a complete Ethereum environment for your tests
+- Simulate a complete Ethereum environment for your tests without the need for running a test node
 - Test contract storage operations and state transitions
 - Mock transaction context and block information
 - Test contract-to-contract interactions with mocked calls
@@ -29,13 +29,7 @@ Before you begin, make sure you have:
 
 - Basic familiarity with Rust and smart contract development
 - Understanding of unit testing concepts
-
-<details>
-<summary>Rust toolchain</summary>
-
-Follow the instructions on [Rust Lang's installation page](https://www.rust-lang.org/tools/install) to install a complete Rust toolchain (v1.81 or newer) on your system. After installation, ensure you can access the programs `rustup`, `rustc`, and `cargo` from your preferred terminal application.
-
-</details>
+- Rust toolchain: follow the instructions on [Rust Lang's installation page](https://www.rust-lang.org/tools/install) to install a complete Rust toolchain (v1.81 or newer) on your system. After installation, ensure you can access the programs `rustup`, `rustc`, and `cargo` from your preferred terminal application.
 
 ## The Stylus Testing Framework
 
@@ -47,9 +41,9 @@ The Stylus SDK includes `stylus_test`, a module that provides all the tools you 
 
 ### Key Components
 
-Here are the key components you'll use when testing your Stylus contracts:
+Here are the components you'll use when testing your Stylus contracts:
 
-- **testvm**: The core component that simulates the Stylus execution environment
+- **TestVM**: The core component that simulates the Stylus execution environment
 - **Storage accessors**: For testing contract state changes
 - **Call mocking**: For simulating interactions with other contracts
 - **Block context**: For testing time-dependent logic
@@ -62,6 +56,7 @@ Let's look at a Rust-based cupcake vending machine smart contract. This contract
 2. The vending machine tracks each user's cupcake balance
 
 <CustomDetails summary="Cupcake Vending Machine Contract">
+
 ```rust
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
@@ -118,8 +113,8 @@ let five_seconds_from_last_distribution = last_distribution + U256::from(5);
     }
 
 }
-
 ```
+
 </CustomDetails>
 
 ## Writing Tests for the Vending Machine
@@ -146,8 +141,9 @@ mod test {
     #[test]
     fn test_give_cupcake_to() {
     // Set up test environment
-//    let vm = TestVM::default();
- //   let mut contract = VendingMachine::from(&vm);
+    let vm = TestVM::default();
+    // Initialize your contract
+    let mut contract = VendingMachine::from(&vm);
 
     // Test logic goes here...
 }
@@ -163,13 +159,12 @@ The `TestVM` allows you to control aspects like:
 - Transaction value and sender
 - Storage state
 
-
 Let's create a comprehensive test suite that covers all aspects of our contract.
 
 Below is a more advanced example test file, we'll go over the code features one by one:
 
-
 <CustomDetails summary="Comprehensive Test Vending Machine Contract">
+
 ```rust
 #[cfg(test)]
 mod test {
@@ -232,7 +227,7 @@ mod test {
     fn test_advanced_testvm_configuration() {
         // SECTION 1: TestVM Setup and Configuration
         // -----------------------------------------
-        
+
         // Create a TestVM with custom configuration using the builder pattern
         // This approach allows for fluent, readable test setup
         let vm: TestVM = TestVMBuilder::new()
@@ -247,13 +242,13 @@ mod test {
         // Configure additional blockchain state parameters directly on the VM instance
         // This demonstrates how to set parameters after VM creation
         vm.set_block_number(12345678);
-        
+
         // Note: The chain ID is set to 42161 (Arbitrum One) by default in the TestVM
         // We don't need to set it explicitly as it's already configured in the VM state
 
         // SECTION 2: Contract Initialization and User Setup
         // ------------------------------------------------
-        
+
         // Initialize our VendingMachine contract with the configured VM
         // The `from` method connects our contract to the test environment
         let mut contract = VendingMachine::from(&vm);
@@ -264,7 +259,7 @@ mod test {
 
         // SECTION 3: Initial State Verification
         // ------------------------------------
-        
+
         // Verify the user starts with zero cupcakes
         // This confirms our contract's initial state is as expected
         assert_eq!(contract.get_cupcake_balance_for(user).unwrap(), U256::ZERO);
@@ -272,10 +267,10 @@ mod test {
         // Set the initial block timestamp by advancing it by 10 seconds
         // This ensures we're past any time-based restrictions
         vm.set_block_timestamp(vm.block_timestamp() + 10);
-        
+
         // SECTION 4: Contract Interaction
         // ------------------------------
-        
+
         // Give a cupcake to the user and verify the operation succeeds
         // The contract should return true when a cupcake is successfully given
         assert!(contract.give_cupcake_to(user).unwrap());
@@ -289,7 +284,7 @@ mod test {
 
         // SECTION 5: VM State Inspection
         // -----------------------------
-        
+
         // Take a snapshot of the current VM state for inspection
         // This captures all storage, balances, and blockchain parameters
         let snapshot = vm.snapshot();
@@ -302,7 +297,7 @@ mod test {
 
         // SECTION 6: Mocking External Contract Calls
         // -----------------------------------------
-        
+
         // Define an external contract we might want to interact with
         let external_contract = address!("0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199");
         // Define example call data we would send to that contract
@@ -316,11 +311,11 @@ mod test {
 
         // SECTION 7: Time-Dependent Behavior Testing
         // -----------------------------------------
-        
+
         // Set a specific block timestamp
         // This simulates the passage of time on the blockchain
         vm.set_block_timestamp(1006);
-        
+
         // Try giving another cupcake after the time restriction has passed
         // The contract should allow this since enough time has elapsed
         assert!(contract.give_cupcake_to(user).unwrap());
@@ -332,14 +327,16 @@ mod test {
             U256::from(2)
         );
     }
-}
 
+}
 ```
+
 </CustomDetails>
 
 Here is a `cargo.toml` file to add the required dependencies:
 
-<CustomDetails summary="Comprehensive Test Vending Machine Contract">
+<CustomDetails summary="cargo.toml">
+
 ```rust
 [package]
 name = "stylus-cupcake-example"
@@ -383,10 +380,10 @@ panic = "abort"
 # optimization levels, such as "s" and "z"
 opt-level = 3
 ```
+
 </CustomDetails>
 
 You can find the example above in the [stylus-quickstart-vending-machine git repository](https://github.com/OffchainLabs/stylus-quickstart-vending-machine).
-
 
 ## Running Tests
 
