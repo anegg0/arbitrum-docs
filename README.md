@@ -43,6 +43,7 @@ This repository is organized as follows:
 
 ## Contribution
 
+pouet
 For most of the docs content, you can contribute by simply reviewing our [docs contribution guidelines](https://docs.arbitrum.io/for-devs/contribute) and opening a PR!
 
 The following are the only exceptions:
